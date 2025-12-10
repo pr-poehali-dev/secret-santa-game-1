@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -11,6 +11,8 @@ import CreateGame from "./pages/CreateGame";
 import GameDetail from "./pages/GameDetail";
 import Participant from "./pages/Participant";
 import { Game } from "./types/game";
+import { api } from "./lib/api";
+import { useToast } from "./hooks/use-toast";
 
 const queryClient = new QueryClient();
 
@@ -19,6 +21,34 @@ function AppContent() {
   const [games, setGames] = useState<Game[]>([]);
   const [currentView, setCurrentView] = useState<'admin' | 'create' | 'detail'>('admin');
   const [selectedGameId, setSelectedGameId] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const { toast } = useToast();
+
+  useEffect(() => {
+    if (isLoggedIn) {
+      loadGames();
+    }
+  }, [isLoggedIn]);
+
+  const loadGames = async () => {
+    try {
+      setLoading(true);
+      const fetchedGames = await api.getAllGames();
+      setGames(fetchedGames.map(g => ({
+        ...g,
+        createdAt: new Date(g.createdAt)
+      })));
+    } catch (error) {
+      console.error('Failed to load games:', error);
+      toast({
+        title: 'Ошибка',
+        description: 'Не удалось загрузить игры',
+        variant: 'destructive',
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleLogin = (email: string, password: string) => {
     if (email === 'skzry@mail.ru' && password === 'R.ofical.1') {
@@ -42,30 +72,41 @@ function AppContent() {
     return newArray;
   };
 
-  const handleCreateGame = (name: string, rules: string, participantNames: string[], emoji: string) => {
-    const gameId = crypto.randomUUID();
-    const participants = participantNames.map(name => ({
-      id: crypto.randomUUID(),
-      name,
-    }));
+  const handleCreateGame = async (name: string, rules: string, participantNames: string[], emoji: string) => {
+    try {
+      const gameId = crypto.randomUUID();
+      const participants = participantNames.map(name => ({
+        id: crypto.randomUUID(),
+        name,
+      }));
 
-    const shuffled = shuffleArray([...participants]);
-    participants.forEach((participant, index) => {
-      participant.receiverId = shuffled[(index + 1) % shuffled.length].id;
-    });
+      const shuffled = shuffleArray([...participants]);
+      participants.forEach((participant, index) => {
+        participant.receiverId = shuffled[(index + 1) % shuffled.length].id;
+      });
 
-    const newGame: Game = {
-      id: gameId,
-      name,
-      rules,
-      emoji,
-      participants,
-      createdAt: new Date(),
-    };
+      const newGame = {
+        id: gameId,
+        name,
+        rules,
+        emoji,
+        participants,
+        createdAt: new Date().toISOString(),
+      };
 
-    setGames([...games, newGame]);
-    setSelectedGameId(gameId);
-    setCurrentView('detail');
+      await api.createGame(newGame);
+      await loadGames();
+      
+      setSelectedGameId(gameId);
+      setCurrentView('detail');
+    } catch (error) {
+      console.error('Failed to create game:', error);
+      toast({
+        title: 'Ошибка',
+        description: 'Не удалось создать игру',
+        variant: 'destructive',
+      });
+    }
   };
 
   const handleDeleteGame = (id: string) => {
@@ -81,11 +122,49 @@ function AppContent() {
 
   function ParticipantRoute() {
     const { gameId, participantId } = useParams();
-    const game = games.find(g => g.id === gameId);
-    const participant = game?.participants.find(p => p.id === participantId);
-    const receiver = game?.participants.find(p => p.id === participant?.receiverId);
+    const [participantData, setParticipantData] = useState<{
+      game: Game | null;
+      participant: any;
+      receiver: any;
+    }>({ game: null, participant: null, receiver: null });
+    const [loading, setLoading] = useState(true);
 
-    return <Participant game={game || null} participant={participant || null} receiver={receiver || null} />;
+    useEffect(() => {
+      const loadData = async () => {
+        if (!gameId || !participantId) return;
+        
+        try {
+          const data = await api.getParticipantData(gameId, participantId);
+          setParticipantData({
+            game: { ...data.game, createdAt: new Date(data.game.createdAt) },
+            participant: data.participant,
+            receiver: data.receiver,
+          });
+        } catch (error) {
+          console.error('Failed to load participant data:', error);
+        } finally {
+          setLoading(false);
+        }
+      };
+
+      loadData();
+    }, [gameId, participantId]);
+
+    if (loading) {
+      return (
+        <div className="min-h-screen bg-background flex items-center justify-center">
+          <div className="text-2xl text-primary">Загрузка...</div>
+        </div>
+      );
+    }
+
+    return (
+      <Participant 
+        game={participantData.game} 
+        participant={participantData.participant} 
+        receiver={participantData.receiver} 
+      />
+    );
   }
 
   return (
