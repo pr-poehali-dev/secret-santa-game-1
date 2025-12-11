@@ -51,4 +51,12 @@ export const api = {
     if (!response.ok) throw new Error('Failed to fetch participant data');
     return response.json();
   },
+
+  async deleteGame(gameId: string): Promise<{ message: string }> {
+    const response = await fetch(`${API_URL}?path=/games/${gameId}`, {
+      method: 'DELETE',
+    });
+    if (!response.ok) throw new Error('Failed to delete game');
+    return response.json();
+  },
 };

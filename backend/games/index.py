@@ -10,6 +10,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     GET /games - получить все игры
     POST /games - создать новую игру
     GET /games/:id - получить игру по ID
+    DELETE /games/:id - удалить игру
     GET /participant/:gameId/:participantId - получить информацию для участника
     '''
     
@@ -20,7 +21,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             'statusCode': 200,
             'headers': {
                 'Access-Control-Allow-Origin': '*',
-                'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+                'Access-Control-Allow-Methods': 'GET, POST, DELETE, OPTIONS',
                 'Access-Control-Allow-Headers': 'Content-Type',
                 'Access-Control-Max-Age': '86400'
             },
@@ -223,6 +224,47 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 'statusCode': 201,
                 'headers': {'Access-Control-Allow-Origin': '*', 'Content-Type': 'application/json'},
                 'body': json.dumps({'id': game_id, 'message': 'Game created'}),
+                'isBase64Encoded': False
+            }
+        
+        elif method == 'DELETE':
+            query_params = event.get('queryStringParameters', {}) or {}
+            path_param = query_params.get('path', '')
+            
+            if not path_param:
+                request_context = event.get('requestContext', {})
+                http_path = request_context.get('http', {}).get('path', '')
+                if http_path:
+                    path_param = http_path
+            
+            if path_param.startswith('/games/'):
+                game_id = path_param.replace('/games/', '')
+                
+                cursor.execute(
+                    "DELETE FROM t_p50414235_secret_santa_game_1.participants WHERE game_id = %s",
+                    (game_id,)
+                )
+                
+                cursor.execute(
+                    "DELETE FROM t_p50414235_secret_santa_game_1.games WHERE id = %s",
+                    (game_id,)
+                )
+                
+                conn.commit()
+                cursor.close()
+                conn.close()
+                
+                return {
+                    'statusCode': 200,
+                    'headers': {'Access-Control-Allow-Origin': '*', 'Content-Type': 'application/json'},
+                    'body': json.dumps({'message': 'Game deleted'}),
+                    'isBase64Encoded': False
+                }
+            
+            return {
+                'statusCode': 400,
+                'headers': {'Access-Control-Allow-Origin': '*', 'Content-Type': 'application/json'},
+                'body': json.dumps({'error': 'Invalid path'}),
                 'isBase64Encoded': False
             }
         

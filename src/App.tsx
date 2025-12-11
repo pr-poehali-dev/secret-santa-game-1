@@ -109,8 +109,18 @@ function AppContent() {
     }
   };
 
-  const handleDeleteGame = (id: string) => {
-    setGames(games.filter(g => g.id !== id));
+  const handleDeleteGame = async (id: string) => {
+    try {
+      await api.deleteGame(id);
+      await loadGames();
+    } catch (error) {
+      console.error('Failed to delete game:', error);
+      toast({
+        title: 'Ошибка',
+        description: 'Не удалось удалить игру',
+        variant: 'destructive',
+      });
+    }
   };
 
   const handleEditGame = (id: string) => {
