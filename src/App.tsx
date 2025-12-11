@@ -128,6 +128,24 @@ function AppContent() {
     setCurrentView('detail');
   };
 
+  const handleUpdateGame = async (updatedGame: Game) => {
+    try {
+      await api.updateGame(updatedGame.id, updatedGame);
+      await loadGames();
+      toast({
+        title: 'Игра обновлена',
+        description: 'Изменения успешно сохранены',
+      });
+    } catch (error) {
+      console.error('Failed to update game:', error);
+      toast({
+        title: 'Ошибка',
+        description: 'Не удалось обновить игру',
+        variant: 'destructive',
+      });
+    }
+  };
+
   const selectedGame = games.find(g => g.id === selectedGameId);
 
   function ParticipantRoute() {
@@ -201,6 +219,7 @@ function AppContent() {
             <GameDetail 
               game={selectedGame}
               onBack={() => setCurrentView('admin')}
+              onUpdate={handleUpdateGame}
             />
           ) : (
             <NotFound />

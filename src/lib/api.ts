@@ -59,4 +59,16 @@ export const api = {
     if (!response.ok) throw new Error('Failed to delete game');
     return response.json();
   },
+
+  async updateGame(gameId: string, game: Game): Promise<{ message: string }> {
+    const response = await fetch(`${API_URL}?path=/games/${gameId}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(game),
+    });
+    if (!response.ok) throw new Error('Failed to update game');
+    return response.json();
+  },
 };
